@@ -19,83 +19,12 @@ Parameters:
     Default: "25a49ebdbbb33d630eecfa90b42985b14fc2d322"
   EnvironmentName:
     Type: String
-  SetupJenkins: 
-    Description: "Setup Jenkins True/False "
-    Type: String
-    AllowedValues: 
-      - YES
-      - NO
-    ConstraintDescription: must specify YES or NO.
   NetworkStack:
     Description: Network Cloudformation Stack Name
     Type: String
   BucketName:
     Description: Bucket Name
     Type: String
-  JenkinsInstanceType:
-    Description: Select Jenkins instance type
-    Type: String
-    Default: t2.small
-    AllowedValues:
-    - t1.micro
-    - t2.nano
-    - t2.micro
-    - t2.small
-    - t2.medium
-    - t2.large
-    - m1.small
-    - m1.medium
-    - m1.large
-    - m1.xlarge
-    - m2.xlarge
-    - m2.2xlarge
-    - m2.4xlarge
-    - m3.medium
-    - m3.large
-    - m3.xlarge
-    - m3.2xlarge
-    - m4.large
-    - m4.xlarge
-    - m4.2xlarge
-    - m4.4xlarge
-    - m4.10xlarge
-    - c1.medium
-    - c1.xlarge
-    - c3.large
-    - c3.xlarge
-    - c3.2xlarge
-    - c3.4xlarge
-    - c3.8xlarge
-    - c4.large
-    - c4.xlarge
-    - c4.2xlarge
-    - c4.4xlarge
-    - c4.8xlarge
-    - g2.2xlarge
-    - g2.8xlarge
-    - r3.large
-    - r3.xlarge
-    - r3.2xlarge
-    - r3.4xlarge
-    - r3.8xlarge
-    - i2.xlarge
-    - i2.2xlarge
-    - i2.4xlarge
-    - i2.8xlarge
-    - d2.xlarge
-    - d2.2xlarge
-    - d2.4xlarge
-    - d2.8xlarge
-    - hi1.4xlarge
-    - hs1.8xlarge
-    - cr1.8xlarge
-    - cc2.8xlarge
-    - cg1.4xlarge
-    ConstraintDescription: must be a valid EC2 instance type.
-  JenkinsKeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
 Mappings:
   AWSInstanceType2Arch:
     t1.micro:
@@ -370,132 +299,9 @@ Mappings:
       HVM64: ami-0f7937761741dc640
       HVMG2: NOT_SUPPORTED
 
-Conditions: 
-  JenkinsSetup: !Equals [ !Ref SetupJenkins, YES ]
 
 Resources:
 
-  JenkinsRole:
-    Type: AWS::IAM::Role
-    Condition: JenkinsSetup
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2008-10-17
-        Statement:
-          - Sid: ''
-            Effect: Allow
-            Action: 'sts:AssumeRole'
-            Principal:
-              Service: 
-              - s3.amazonaws.com
-              - autoscaling.amazonaws.com
-              - kms.amazonaws.com
-              - ec2.amazonaws.com
-              - codedeploy.amazonaws.com
-      Path: /
-      RoleName: JenkinsDeployRole
-
-  
-  EC2DeploymentPolicy:
-    Type: "AWS::IAM::Policy"
-    Condition: JenkinsSetup
-    Properties:
-      PolicyName: "JenkinsAllowS3"
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-        - Effect: Allow
-          Action: 
-          - s3:*
-          Resource:
-          - Fn::Join:
-              - ""
-              - 
-                - "arn:aws:s3:::"
-                - 
-                  Ref: "BucketName"
-          - Fn::Join:
-              - ""
-              - 
-                - "arn:aws:s3:::"
-                - 
-                  Ref: "BucketName"
-                - "/*"
-      Roles:
-        -
-          Ref: "JenkinsRole"
-
-  Ec2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Condition: JenkinsSetup
-    Properties:
-      Path: /
-      Roles:
-        - !Ref JenkinsRole
-      InstanceProfileName: jenkinsEC2Profile
-
-
-  EC2Instance:
-    Type: AWS::EC2::Instance
-    Condition: JenkinsSetup
-    Properties:
-      InstanceType:
-        Ref: JenkinsInstanceType
-      SecurityGroupIds:
-        - Fn::ImportValue:
-            Fn::Sub: "${NetworkStack}-JenkinsSG"
-      SubnetId:
-        Fn::ImportValue:
-          Fn::Sub: "${NetworkStack}-PublicSubnet1SubnetID"
-      KeyName:
-        Ref: JenkinsKeyName
-      IamInstanceProfile: !Ref Ec2InstanceProfile
-      ImageId:
-        Fn::FindInMap:
-        - AWSRegionArch2AMI
-        - Ref: AWS::Region
-        - Fn::FindInMap:
-          - AWSInstanceType2Arch
-          - Ref: JenkinsInstanceType
-          - Arch
-      Tags:
-        - Key: Name
-          Value: Jenkins-Server
-      UserData:
-        Fn::Base64:
-          Fn::Join:
-          - ''
-          - - "#!/bin/bash -xe\n"
-            - "\n"
-            - "yum remove java -y"
-            - "\n"
-            - "yum install java-1.8.0-openjdk -y"
-            - "\n"
-            - "wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins.io/redhat-stable/jenkins.repo"
-            - "\n"
-            - "rpm --import http://pkg.jenkins.io/redhat-stable/jenkins.io.key"
-            - "\n"
-            - "yum install jenkins -y"
-            - "\n"
-            - "/etc/init.d/jenkins start"
-            - "\n"
-            - "curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip"
-            - "\n"
-            - "unzip awscliv2.zip"
-            - "\n"
-            - "./aws/install"
-            - "\n"
-  IPAddress:
-    Type: AWS::EC2::EIP
-    Condition: JenkinsSetup
-  IPAssoc:
-    Type: AWS::EC2::EIPAssociation
-    Condition: JenkinsSetup
-    Properties:
-      InstanceId:
-        Ref: EC2Instance
-      EIP:
-        Ref: IPAddress
 
 ## Setup AWS Pipeline ##
 
@@ -697,15 +503,4 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
 
-Outputs:
-  InstanceId:
-    Condition: JenkinsSetup
-    Description: InstanceId of the newly created EC2 instance
-    Value:
-      Ref: EC2Instance
-  InstanceIPAddress:
-    Condition: JenkinsSetup
-    Description: IP address of the newly created EC2 instance
-    Value:
-      Ref: IPAddress
 
