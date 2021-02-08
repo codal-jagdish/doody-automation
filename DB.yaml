@@ -1,0 +1,92 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create Aurora serverless cluster for With Databases and Users
+
+Parameters:
+   NetworkStack:
+     Type: String
+   EnvironmentName:
+     Type: String
+     Description: "Environment Name"
+   MasterDBUser:
+     Type: String
+     Description: "MasterDBUser"
+     NoEcho: "false"
+     MinLength: "1"
+     MaxLength: "16"
+     AllowedPattern : "[a-zA-Z][a-zA-Z0-9]*"
+     ConstraintDescription : "must begin with a letter and contain only alphanumeric characters."
+   MasterDBPass:
+     Type: String
+     Description: "Master DB Password"
+     NoEcho: "true"
+     MinLength: "8"
+     MaxLength: "48"
+     AllowedPattern : "[a-zA-Z0-9]*"
+     ConstraintDescription : "must contain only alphanumeric characters."
+   DatabaseName:
+     Type: String
+     Description: "Database Name"
+
+   DBInstanceClass:
+     Description: The database instance type
+     Type: String
+     Default: db.t3.medium
+     AllowedValues: [db.t3.medium, db.r5.large, db.r5.xlarge, db.r5.2xlarge, db.r5.4xlarge, db.r5.8xlarge, db.r4.large, db.r4.xlarge, db.r4.2xlarge, db.r4.4xlarge]
+     ConstraintDescription: must select a valid database instance type.
+Resources:
+  DBSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: Database Subnet Group
+      SubnetIds: 
+        - Fn::ImportValue:
+            Fn::Sub: "${NetworkStack}-PrivateSubnet0SubnetID"
+        - Fn::ImportValue:
+            Fn::Sub: "${NetworkStack}-PrivateSubnet1SubnetID"
+      Tags: 
+        - 
+          Key: Name
+          Value: DBSubnetGroup
+  
+  RDSCluster:
+    Type: 'AWS::RDS::DBCluster'
+    Properties:
+      MasterUsername: !Ref MasterDBUser
+      MasterUserPassword: !Ref MasterDBPass
+      DatabaseName: !Ref DatabaseName
+      DBClusterIdentifier: !Sub "${EnvironmentName}-Cluster"
+      Engine: aurora-postgresql
+      EngineVersion: '10.7'
+      DBClusterParameterGroupName: default.aurora-postgresql10
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      EnableCloudwatchLogsExports:
+        - postgresql
+      VpcSecurityGroupIds:
+        - Fn::ImportValue:
+            Fn::Sub: "${NetworkStack}-DBSecurityGroupID"
+  RDSDBInstance1:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: !Sub "${EnvironmentName}-DB"
+      Engine: aurora-postgresql
+      DBClusterIdentifier: !Ref RDSCluster
+      PubliclyAccessible: 'true'
+      DBInstanceClass: !Ref DBInstanceClass
+
+
+Outputs:
+  PostGresHost:
+    Value: !GetAtt RDSCluster.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::Region}-${EnvironmentName}-postgres-host"
+  PostGresDBName:
+    Value: !Ref DatabaseName
+    Export:
+      Name: !Sub "${AWS::Region}-${EnvironmentName}-postgres-dbname"
+#  MasterDBUser:
+#    Value: !Ref MasterDBUser
+#    Export:
+#      Name: !Sub "${AWS::Region}-${EnvironmentName}-mysql-username"

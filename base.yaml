@@ -1,0 +1,565 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Provision Services by Jagdish Bairagi
+Metadata: 
+  AWS::CloudFormation::Interface: 
+### This is for Group of parameters and each group setup with Label.
+    ParameterGroups: 
+      - 
+        Label:
+          default: "Environment Name"
+        Parameters:
+          - EnvironmentName
+      - 
+        Label: 
+          default: "Network Configuration"
+        Parameters: 
+          - NetworkStack
+      - 
+        Label: 
+          default: "Web Hosting Configuration"
+        Parameters: 
+          - BucketName
+          - InstanceType
+          - KeyName
+          - ImageID
+          - SSHLocation
+          - LoadBalancerSSL 
+      - 
+        Label:
+          default: "Bastion-Host Configuration"
+        Parameters:
+          - BastionInstanceType
+          - BastionImageID
+          - JumpBoxKeyName
+      - 
+        Label: 
+          default: "Database Configuration"
+        Parameters: 
+          - MasterDBUser
+          - MasterDBPass
+          - DatabaseName
+          - DBInstanceClass
+      - 
+        Label: 
+          default: "CICD Deployment Configuration"
+        Parameters: 
+          - GitHubOwner
+          - GitHubRepo
+          - GitHubBranch
+          - GitHubOAuthToken
+          - SetupJenkins
+          - JenkinsKeyName
+          - JenkinsInstanceType
+      - 
+        Label:
+          default: "Redis Cluster Configuration"
+        Parameters:
+          - ClusterNodeType
+Parameters:
+  GitHubOwner:
+    Type: String
+    Default: codal
+    Description: GitHub Organization Name
+  GitHubRepo:
+    Type: String
+    Description: GitHub Repo to pull from. Only the Name. not the URL
+  GitHubBranch:
+    Type: String
+    Description: GitHub Branch
+  GitHubOAuthToken:
+    NoEcho: true
+    Type: String
+    Description: Secret. It might look something like 9b189a1654643522561f7b3ebd44a1531a4287af OAuthToken with access to Repo. Go to https://github.com/settings/tokens
+    Default: "25a49ebdbbb33d630eecfa90b42985b14fc2d322"
+  EnvironmentName:
+    Type: String
+  SetupJenkins:
+    Description: "Setup Jenkins True/False "
+    Type: String
+    AllowedValues:
+      - YES
+      - NO
+    ConstraintDescription: must specify YES or NO.
+  JenkinsKeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  BucketName:
+    Description: Deployment Bucket Name
+    Type: String
+  BastionImageID:
+    Description: Bastion Host  Image ID
+    Type: String
+  NetworkStack:
+    Type: String
+    Description: "Network Stack Name"
+    Default: 'VPC-Stack'
+  MasterDBUser:
+    Type: String
+    Description: "DB User"
+    NoEcho: "false"
+    MinLength: "1"
+    MaxLength: "16"
+    AllowedPattern : "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription : "must begin with a letter and contain only alphanumeric characters."
+  MasterDBPass:
+    Type: String
+    Description: "Only Alphanumeric allowed"
+    Default: 'aeasd2839SAd'
+    NoEcho: "true"
+    MinLength: "8"
+    MaxLength: "48"
+    AllowedPattern : "[a-zA-Z0-9]*"
+  DatabaseName:
+    Type: String
+    Description: "Database Name"
+    ConstraintDescription : "must contain only alphanumeric characters."
+  DBInstanceClass:
+    Description: The database instance type
+    Type: String
+    Default: db.t3.medium
+    AllowedValues: [db.t3.medium, db.r5.large, db.r5.xlarge, db.r5.2xlarge, db.r5.4xlarge, db.r5.8xlarge, db.r4.large, db.r4.xlarge, db.r4.2xlarge, db.r4.4xlarge]
+    ConstraintDescription: must select a valid database instance type.
+  LoadBalancerSSL:
+    Description: Enter the ARN of SSL for Load Balancer.
+    Type: String
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.medium
+    AllowedValues: [t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large,  m1.small,
+      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
+      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
+      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
+      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
+      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+  ClusterNodeType:
+    Description: The compute and memory capacity of the nodes in the Redis Cluster
+    Type: String
+    Default: cache.t2.small
+    AllowedValues: [cache.m1.small, cache.m1.large, cache.m1.xlarge, cache.m2.xlarge, cache.m2.2xlarge, cache.m2.4xlarge, cache.c1.xlarge, cache.t2.micro, cache.t2.small, cache.t2.medium, cache.m3.medium, cache.m3.large, cache.m3.xlarge, cache.m3.2xlarge, cache.r3.large, cache.r3.xlarge, cache.r3.2xlarge, cache.r3.4xlarge, cache.r3.8xlarge]
+    ConstraintDescription: must select a valid Cache Node type.
+  BastionInstanceType:
+    Description: Bastion EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large, m1.small,
+      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
+      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
+      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
+      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
+      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names "ProjectName-Prod/Dev"
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  JumpBoxKeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the Bastion Instance(Jump Box)
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  ImageID:
+    Description: Web Server Image ID
+    Type: String
+
+  JenkinsInstanceType:
+    Description: Select Jenkins instance type
+    Type: String
+    Default: t2.small
+    AllowedValues: [t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large, m1.small,
+      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
+      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
+      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
+      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
+      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+Mappings:
+  AWSInstanceType2Arch:
+    t1.micro:
+      Arch: HVM64
+    t2.nano:
+      Arch: HVM64
+    t2.micro:
+      Arch: HVM64
+    t2.small:
+      Arch: HVM64
+    t2.medium:
+      Arch: HVM64
+    t2.large:
+      Arch: HVM64
+    m1.small:
+      Arch: HVM64
+    m1.medium:
+      Arch: HVM64
+    m1.large:
+      Arch: HVM64
+    m1.xlarge:
+      Arch: HVM64
+    m2.xlarge:
+      Arch: HVM64
+    m2.2xlarge:
+      Arch: HVM64
+    m2.4xlarge:
+      Arch: HVM64
+    m3.medium:
+      Arch: HVM64
+    m3.large:
+      Arch: HVM64
+    m3.xlarge:
+      Arch: HVM64
+    m3.2xlarge:
+      Arch: HVM64
+    m4.large:
+      Arch: HVM64
+    m4.xlarge:
+      Arch: HVM64
+    m4.2xlarge:
+      Arch: HVM64
+    m4.4xlarge:
+      Arch: HVM64
+    m4.10xlarge:
+      Arch: HVM64
+    c1.medium:
+      Arch: HVM64
+    c1.xlarge:
+      Arch: HVM64
+    c3.large:
+      Arch: HVM64
+    c3.xlarge:
+      Arch: HVM64
+    c3.2xlarge:
+      Arch: HVM64
+    c3.4xlarge:
+      Arch: HVM64
+    c3.8xlarge:
+      Arch: HVM64
+    c4.large:
+      Arch: HVM64
+    c4.xlarge:
+      Arch: HVM64
+    c4.2xlarge:
+      Arch: HVM64
+    c4.4xlarge:
+      Arch: HVM64
+    c4.8xlarge:
+      Arch: HVM64
+    g2.2xlarge:
+      Arch: HVMG2
+    g2.8xlarge:
+      Arch: HVMG2
+    r3.large:
+      Arch: HVM64
+    r3.xlarge:
+      Arch: HVM64
+    r3.2xlarge:
+      Arch: HVM64
+    r3.4xlarge:
+      Arch: HVM64
+    r3.8xlarge:
+      Arch: HVM64
+    i2.xlarge:
+      Arch: HVM64
+    i2.2xlarge:
+      Arch: HVM64
+    i2.4xlarge:
+      Arch: HVM64
+    i2.8xlarge:
+      Arch: HVM64
+    d2.xlarge:
+      Arch: HVM64
+    d2.2xlarge:
+      Arch: HVM64
+    d2.4xlarge:
+      Arch: HVM64
+    d2.8xlarge:
+      Arch: HVM64
+    hi1.4xlarge:
+      Arch: HVM64
+    hs1.8xlarge:
+      Arch: HVM64
+    cr1.8xlarge:
+      Arch: HVM64
+    cc2.8xlarge:
+      Arch: HVM64
+  AWSInstanceType2NATArch:
+    t1.micro:
+      Arch: NATHVM64
+    t2.nano:
+      Arch: NATHVM64
+    t2.micro:
+      Arch: NATHVM64
+    t2.small:
+      Arch: NATHVM64
+    t2.medium:
+      Arch: NATHVM64
+    t2.large:
+      Arch: NATHVM64
+    m1.small:
+      Arch: NATHVM64
+    m1.medium:
+      Arch: NATHVM64
+    m1.large:
+      Arch: NATHVM64
+    m1.xlarge:
+      Arch: NATHVM64
+    m2.xlarge:
+      Arch: NATHVM64
+    m2.2xlarge:
+      Arch: NATHVM64
+    m2.4xlarge:
+      Arch: NATHVM64
+    m3.medium:
+      Arch: NATHVM64
+    m3.large:
+      Arch: NATHVM64
+    m3.xlarge:
+      Arch: NATHVM64
+    m3.2xlarge:
+      Arch: NATHVM64
+    m4.large:
+      Arch: NATHVM64
+    m4.xlarge:
+      Arch: NATHVM64
+    m4.2xlarge:
+      Arch: NATHVM64
+    m4.4xlarge:
+      Arch: NATHVM64
+    m4.10xlarge:
+      Arch: NATHVM64
+    c1.medium:
+      Arch: NATHVM64
+    c1.xlarge:
+      Arch: NATHVM64
+    c3.large:
+      Arch: NATHVM64
+    c3.xlarge:
+      Arch: NATHVM64
+    c3.2xlarge:
+      Arch: NATHVM64
+    c3.4xlarge:
+      Arch: NATHVM64
+    c3.8xlarge:
+      Arch: NATHVM64
+    c4.large:
+      Arch: NATHVM64
+    c4.xlarge:
+      Arch: NATHVM64
+    c4.2xlarge:
+      Arch: NATHVM64
+    c4.4xlarge:
+      Arch: NATHVM64
+    c4.8xlarge:
+      Arch: NATHVM64
+    g2.2xlarge:
+      Arch: NATHVMG2
+    g2.8xlarge:
+      Arch: NATHVMG2
+    r3.large:
+      Arch: NATHVM64
+    r3.xlarge:
+      Arch: NATHVM64
+    r3.2xlarge:
+      Arch: NATHVM64
+    r3.4xlarge:
+      Arch: NATHVM64
+    r3.8xlarge:
+      Arch: NATHVM64
+    i2.xlarge:
+      Arch: NATHVM64
+    i2.2xlarge:
+      Arch: NATHVM64
+    i2.4xlarge:
+      Arch: NATHVM64
+    i2.8xlarge:
+      Arch: NATHVM64
+    d2.xlarge:
+      Arch: NATHVM64
+    d2.2xlarge:
+      Arch: NATHVM64
+    d2.4xlarge:
+      Arch: NATHVM64
+    d2.8xlarge:
+      Arch: NATHVM64
+    hi1.4xlarge:
+      Arch: NATHVM64
+    hs1.8xlarge:
+      Arch: NATHVM64
+    cr1.8xlarge:
+      Arch: NATHVM64
+    cc2.8xlarge:
+      Arch: NATHVM64
+  AWSRegionArch2AMI:
+    us-east-1:
+      HVM64: ami-0080e4c5bc078760e
+      HVMG2: ami-0aeb704d503081ea6
+    us-west-2:
+      HVM64: ami-01e24be29428c15b2
+      HVMG2: ami-0fe84a5b4563d8f27
+    us-west-1:
+      HVM64: ami-0ec6517f6edbf8044
+      HVMG2: ami-0a7fc72dc0e51aa77
+    eu-west-1:
+      HVM64: ami-08935252a36e25f85
+      HVMG2: ami-0d5299b1c6112c3c7
+    eu-west-2:
+      HVM64: ami-01419b804382064e4
+      HVMG2: NOT_SUPPORTED
+    eu-west-3:
+      HVM64: ami-0dd7e7ed60da8fb83
+      HVMG2: NOT_SUPPORTED
+    eu-central-1:
+      HVM64: ami-0cfbf4f6db41068ac
+      HVMG2: ami-0aa1822e3eb913a11
+    eu-north-1:
+      HVM64: ami-86fe70f8
+      HVMG2: ami-32d55b4c
+    ap-northeast-1:
+      HVM64: ami-00a5245b4816c38e6
+      HVMG2: ami-09d0e0e099ecabba2
+    ap-northeast-2:
+      HVM64: ami-00dc207f8ba6dc919
+      HVMG2: NOT_SUPPORTED
+    ap-northeast-3:
+      HVM64: ami-0b65f69a5c11f3522
+      HVMG2: NOT_SUPPORTED
+    ap-southeast-1:
+      HVM64: ami-05b3bcf7f311194b3
+      HVMG2: ami-0e46ce0d6a87dc979
+    ap-southeast-2:
+      HVM64: ami-02fd0b06f06d93dfc
+      HVMG2: ami-0c0ab057a101d8ff2
+    ap-south-1:
+      HVM64: ami-0ad42f4f66f6c1cc9
+      HVMG2: ami-0244c1d42815af84a
+    us-east-2:
+      HVM64: ami-0cd3dfa4e37921605
+      HVMG2: NOT_SUPPORTED
+    ca-central-1:
+      HVM64: ami-07423fb63ea0a0930
+      HVMG2: NOT_SUPPORTED
+    sa-east-1:
+      HVM64: ami-05145e0b28ad8e0b2
+      HVMG2: NOT_SUPPORTED
+    cn-north-1:
+      HVM64: ami-053617c9d818c1189
+      HVMG2: NOT_SUPPORTED
+    cn-northwest-1:
+      HVM64: ami-0f7937761741dc640
+      HVMG2: NOT_SUPPORTED
+
+ # VPC:
+ #   Type: AWS::EC2::VPC::Id
+ #   Description: Choose which VPC the Application Load Balancer should be deployed to
+
+ # InstanceSubnets:
+ #   Description: Choose which subnets the Instance should be deployed to
+ #   Type: List<AWS::EC2::Subnet::Id>
+
+ # Subnets:
+ #   Description: Choose which subnets the Application Load Balancer should be deployed to
+ #   Type: List<AWS::EC2::Subnet::Id>
+
+ # SecurityGroup:
+ #   Description: Select the Security Group to apply to the Application Load Balancer
+ #   Type: AWS::EC2::SecurityGroup::Id
+
+ # LoadBalancerSSL:
+ #   Description: Select the SSL Certificate to apply to the Application Load Balancer
+ #   Type: String
+ #   Default: arn:aws:acm:us-west-2:862467379663:certificate/039483c7-ca89-4c65-acc2-9f9eb86f598e
+
+
+Resources: 
+
+  AppStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ImageID: !Ref ImageID
+        SSHLocation: !Ref SSHLocation
+        InstanceType: !Ref InstanceType
+        BastionInstanceType: !Ref BastionInstanceType
+        BastionImageID: !Ref BastionImageID
+        KeyName: !Ref KeyName
+        JumpBoxKeyName: !Ref JumpBoxKeyName
+        NetworkStack: !Ref NetworkStack
+        EnvironmentName: !Ref EnvironmentName
+        BucketName: !Ref BucketName
+        LoadBalancerSSL: !Ref LoadBalancerSSL
+      TemplateURL: https://doodycalls-templates.s3.amazonaws.com/App.yaml
+      TimeoutInMinutes: '6000'
+
+  DBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        MasterDBUser: !Ref MasterDBUser
+        MasterDBPass: !Ref MasterDBPass
+        DatabaseName: !Ref DatabaseName
+        EnvironmentName: !Ref EnvironmentName
+        NetworkStack: !Ref NetworkStack
+        DBInstanceClass: !Ref DBInstanceClass
+      TemplateURL: https://doodycalls-templates.s3.amazonaws.com/DB.yaml
+      TimeoutInMinutes: '6000'
+
+  CICDStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        NetworkStack: !Ref NetworkStack
+        BucketName: !Ref  BucketName
+        GitHubOwner: !Ref  GitHubOwner
+        GitHubRepo: !Ref  GitHubRepo
+        GitHubBranch: !Ref  GitHubBranch
+        GitHubOAuthToken: !Ref  GitHubOAuthToken
+        SetupJenkins: !Ref  SetupJenkins
+        JenkinsKeyName: !Ref  JenkinsKeyName
+        JenkinsInstanceType: !Ref  JenkinsInstanceType       
+      TemplateURL: https://doodycalls-templates.s3.amazonaws.com/cicd.yaml
+      TimeoutInMinutes: '6000'
+
+  CacheStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        NetworkStack: !Ref NetworkStack
+        ClusterNodeType: !Ref ClusterNodeType
+        EnvironmentName: !Ref EnvironmentName
+      TemplateURL: https://doodycalls-templates.s3.amazonaws.com/cache.yaml
+      TimeoutInMinutes: '6000'
+
+
+
+Outputs:
+   AutoscalingGroup:
+     Value: !GetAtt 'AppStack.Outputs.AutoScalingGroup'
+     Description: Auto Scaling Group Name
+     Export:
+       Name:
+         Fn::Sub: "${AWS::StackName}-AutoscalingGroup"
