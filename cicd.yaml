@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AWS CloudFormation template deploy AWS CICD with Jenkins instance
+Description: 'AWS CloudFormation template deploy AWS CICD
 created by Jagdish Bairagi'
 Parameters:
   GitHubOwner:

@@ -1,9 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AWS CloudFormation Sample Template ElastiCache_Redis: Sample template
-  showing how to create an Amazon ElastiCache Redis Cluster. **WARNING** This template
-  creates an Amazon EC2 Instance and an Amazon ElastiCache Cluster. You will be billed
-  for the AWS resources used if you create a stack from this template.'
+Description: 'AWS Elastic Redis Cache'
 Parameters:
   ClusterNodeType:
     Description: The compute and memory capacity of the nodes in the Redis Cluster

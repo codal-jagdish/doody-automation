@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: Provision Services by Jagdish Bairagi
+Description: Production stack author - Jagdish Bairagi
 Metadata: 
   AWS::CloudFormation::Interface: 
 ### This is for Group of parameters and each group setup with Label.
@@ -48,9 +48,6 @@ Metadata:
           - GitHubRepo
           - GitHubBranch
           - GitHubOAuthToken
-          - SetupJenkins
-          - JenkinsKeyName
-          - JenkinsInstanceType
       - 
         Label:
           default: "Redis Cluster Configuration"
@@ -74,17 +71,6 @@ Parameters:
     Default: "25a49ebdbbb33d630eecfa90b42985b14fc2d322"
   EnvironmentName:
     Type: String
-  SetupJenkins:
-    Description: "Setup Jenkins True/False "
-    Type: String
-    AllowedValues:
-      - YES
-      - NO
-    ConstraintDescription: must specify YES or NO.
-  JenkinsKeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
   BucketName:
     Description: Deployment Bucket Name
     Type: String
@@ -185,19 +171,6 @@ Parameters:
     Description: Web Server Image ID
     Type: String
 
-  JenkinsInstanceType:
-    Description: Select Jenkins instance type
-    Type: String
-    Default: t2.small
-    AllowedValues: [t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large, m1.small,
-      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
-      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
-      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
-      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
-      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
-      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
-      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
-    ConstraintDescription: must be a valid EC2 instance type.
 Mappings:
   AWSInstanceType2Arch:
     t1.micro:
@@ -538,9 +511,6 @@ Resources:
         GitHubRepo: !Ref  GitHubRepo
         GitHubBranch: !Ref  GitHubBranch
         GitHubOAuthToken: !Ref  GitHubOAuthToken
-        SetupJenkins: !Ref  SetupJenkins
-        JenkinsKeyName: !Ref  JenkinsKeyName
-        JenkinsInstanceType: !Ref  JenkinsInstanceType       
       TemplateURL: https://doodycalls-templates.s3.amazonaws.com/cicd.yaml
       TimeoutInMinutes: '6000'
 
@@ -553,8 +523,6 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
       TemplateURL: https://doodycalls-templates.s3.amazonaws.com/cache.yaml
       TimeoutInMinutes: '6000'
-
-
 
 Outputs:
    AutoscalingGroup:
