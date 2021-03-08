@@ -488,6 +488,7 @@ Resources:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 443
       Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-Ext-2018-06
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref DefaultTargetGroup
@@ -497,12 +498,12 @@ Resources:
   DefaultTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${EnvironmentName}-Target
+      Name: !Sub ${EnvironmentName}
       VpcId:
         Fn::ImportValue:
           Fn::Sub: "${NetworkStack}-VPC"
-      Port: 443
-      Protocol: HTTPS
+      Port: 80
+      Protocol: HTTP
       HealthCheckIntervalSeconds: 60
       HealthCheckPath: /
       HealthCheckTimeoutSeconds: 10
